@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Text2Html + OptiPics — Сервис для текста и изображений</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Шапка сервиса -->
+    <header class="app-header">
+      <div class="logo-group">
+        <h1 class="app-title"><span class="brand-accent">Text2Html</span> + <span class="brand-secondary">OptiPics</span></h1>
+        <p class="app-subtitle">Преобразование текста в чистый HTML и быстрая оптимизация изображений</p>
+      </div>
+      <div class="header-badge">Версия 0.2 (Этап 2: Text2Html)</div>
+    </header>
+
+    <!-- Навигация: Вкладки -->
+    <nav class="tabs-nav" role="tablist" aria-label="Разделы сервиса">
+      <button 
+        class="tab-btn active" 
+        id="tab-btn-text" 
+        data-tab="tab-text" 
+        role="tab" 
+        aria-selected="true" 
+        aria-controls="tab-text">
+        <span class="tab-icon">📝</span>
+        <span class="tab-label">Текст в HTML</span>
+      </button>
+      <button 
+        class="tab-btn" 
+        id="tab-btn-images" 
+        data-tab="tab-images" 
+        role="tab" 
+        aria-selected="false" 
+        aria-controls="tab-images">
+        <span class="tab-icon">🖼️</span>
+        <span class="tab-label">Оптимизация фото (OptiPics)</span>
+      </button>
+    </nav>
+
+    <!-- Основное содержимое вкладок -->
+    <main class="tabs-content">
+      
+      <!-- ================= ВКЛАДКА 1: ТЕКСТ В HTML ================= -->
+      <section 
+        class="tab-pane active" 
+        id="tab-text" 
+        role="tabpanel" 
+        aria-labelledby="tab-btn-text">
+        
+        <div class="pane-header">
+          <h2>Преобразование текста в аккуратный HTML</h2>
+          <p>Вставьте готовый текст или загрузите файл (.docx, .txt), чтобы очистить разметку и получить валидный HTML с типографикой.</p>
+        </div>
+
+        <!-- Баннер уведомлений и сообщений об ошибках -->
+        <div id="text-status-banner" class="status-banner hidden" role="alert"></div>
+
+        <!-- Двухколоночный макет: Ввод слева, Вывод справа -->
+        <div class="grid-two-columns">
+          
+          <!-- Левая колонка: Ввод и настройки -->
+          <div class="card input-card">
+            <div class="card-header">
+              <h3>1. Исходный текст</h3>
+              <div class="source-toggle">
+                <button type="button" class="btn-toggle active" id="btn-input-mode-text">Вставка текста</button>
+                <button type="button" class="btn-toggle" id="btn-input-mode-file">Загрузка файла</button>
+              </div>
+            </div>
+
+            <!-- Область для вставки текста вручную (с сохранением форматирования) -->
+            <div class="input-mode-content" id="mode-text-box">
+              <div
+                id="raw-text-input"
+                class="main-textarea rich-editor"
+                contenteditable="true"
+                role="textbox"
+                aria-multiline="true"
+                aria-label="Поле для вставки текста"
+                data-placeholder="Вставьте сюда ваш текст из Word, Google Docs или любого другого редактора — исходное форматирование сохранится..."></div>
+            </div>
+
+            <!-- Область для загрузки файла (DOCX, TXT) -->
+            <div class="input-mode-content hidden" id="mode-file-box">
+              <div class="drop-zone" id="text-file-dropzone">
+                <span class="drop-icon">📄</span>
+                <p class="drop-title">Перетащите файл сюда или нажмите для выбора</p>
+                <p class="drop-hint">Поддерживается формат Word (.docx), а также .txt, .md</p>
+                <input type="file" id="text-file-input" class="file-input-hidden" accept=".docx,.txt,.md,.doc">
+                <div class="selected-file-info hidden" id="text-file-info"></div>
+              </div>
+            </div>
+
+            <!-- Блок настроек очистки и типографики -->
+            <div class="settings-block">
+              <h4>Настройки обработки:</h4>
+              <div class="checkbox-group">
+                <label class="custom-checkbox">
+                  <input type="checkbox" id="opt-clean-indents" checked>
+                  <span class="checkbox-box"></span>
+                  <span class="checkbox-text">Очистить красную строку и лишние отступы</span>
+                </label>
+                <label class="custom-checkbox">
+                  <input type="checkbox" id="opt-clean-fonts" checked>
+                  <span class="checkbox-box"></span>
+                  <span class="checkbox-text">Удалить стили шрифтов, кегля и цветов</span>
+                </label>
+                <label class="custom-checkbox">
+                  <input type="checkbox" id="opt-detect-headings" checked>
+                  <span class="checkbox-box"></span>
+                  <span class="checkbox-text">Распознавать заголовки H2–H4 (по жирному начертанию)</span>
+                </label>
+                <label class="custom-checkbox">
+                  <input type="checkbox" id="opt-typography" checked>
+                  <span class="checkbox-box"></span>
+                  <span class="checkbox-text">Применить типографику (кавычки «ёлочки», длинное тире)</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Кнопка запуска -->
+            <div class="card-footer">
+              <button type="button" class="btn btn-primary" id="btn-convert-text">
+                <span class="btn-icon">⚡</span> Преобразовать в HTML
+              </button>
+              <button type="button" class="btn btn-ghost" id="btn-clear-text">Очистить</button>
+            </div>
+          </div>
+
+          <!-- Правая колонка: Результат (HTML и Предпросмотр) -->
+          <div class="card output-card">
+            <div class="card-header">
+              <h3>2. Результат</h3>
+              <div class="view-toggle">
+                <button type="button" class="btn-toggle active" id="btn-view-code">HTML-код</button>
+                <button type="button" class="btn-toggle" id="btn-view-preview">Предпросмотр</button>
+              </div>
+            </div>
+
+            <!-- Просмотр кода HTML -->
+            <div class="output-view-content" id="view-code-box">
+              <label for="output-html-code" class="visually-hidden">Готовый HTML-код</label>
+              <textarea 
+                id="output-html-code" 
+                class="main-textarea code-font" 
+                readonly 
+                placeholder="Здесь появится готовый очищенный HTML-код..."></textarea>
+            </div>
+
+            <!-- Визуальный предпросмотр -->
+            <div class="output-view-content hidden" id="view-preview-box">
+              <div id="preview-render-area" class="preview-area">
+                <p class="placeholder-text">Предпросмотр будет отображаться здесь после преобразования текста.</p>
+              </div>
+            </div>
+
+            <!-- Кнопки действий с результатом -->
+            <div class="card-footer space-between">
+              <div class="stats-counter" id="text-stats">
+                Символов: <span id="stat-chars">0</span> | Слов: <span id="stat-words">0</span>
+              </div>
+              <div class="action-buttons">
+                <button type="button" class="btn btn-secondary" id="btn-copy-html">
+                  <span class="btn-icon">📋</span> Скопировать HTML
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+
+      <!-- ================= ВКЛАДКА 2: ОПТИМИЗАЦИЯ ИЗОБРАЖЕНИЙ ================= -->
+      <section 
+        class="tab-pane" 
+        id="tab-images" 
+        role="tabpanel" 
+        aria-labelledby="tab-btn-images">
+        
+        <div class="pane-header">
+          <h2>Оптимизация и сжатие изображений (OptiPics)</h2>
+          <p>Сжатие JPG/PNG, пропорциональное уменьшение размеров и конвертация в WebP для ускорения загрузки страниц сайта.</p>
+        </div>
+
+        <div class="grid-two-columns">
+          
+          <!-- Левая колонка: Загрузка и настройки -->
+          <div class="card input-card">
+            <div class="card-header">
+              <h3>1. Загрузка изображений</h3>
+            </div>
+
+            <!-- Зона Drag-and-Drop для фото -->
+            <div class="drop-zone" id="images-dropzone">
+              <span class="drop-icon">📸</span>
+              <p class="drop-title">Перетащите изображения сюда (JPG, PNG)</p>
+              <p class="drop-hint">или нажмите для выбора файлов на компьютере</p>
+              <input type="file" id="images-file-input" class="file-input-hidden" multiple accept="image/jpeg,image/png,image/webp">
+            </div>
+
+            <!-- Список выбранных файлов перед обработкой -->
+            <div class="file-list-container" id="images-selected-list">
+              <div class="empty-list-notice">Файлы ещё не выбраны</div>
+            </div>
+
+            <!-- Блок настроек сжатия -->
+            <div class="settings-block">
+              <h4>Параметры оптимизации:</h4>
+              <div class="setting-row">
+                <label for="img-format-select" class="setting-label">Итоговый формат:</label>
+                <select id="img-format-select" class="custom-select">
+                  <option value="webp" selected>WebP (максимальное сжатие)</option>
+                  <option value="original">Сохранить исходный формат (JPG/PNG)</option>
+                </select>
+              </div>
+
+              <div class="setting-row">
+                <label for="img-max-width" class="setting-label">Макс. ширина (px):</label>
+                <select id="img-max-width" class="custom-select">
+                  <option value="1920">1920 px (Full HD)</option>
+                  <option value="1200" selected>1200 px (Оптимально для статей)</option>
+                  <option value="800">800 px (Компактный)</option>
+                  <option value="no-resize">Без изменения разрешения</option>
+                </select>
+              </div>
+
+              <div class="setting-row">
+                <div class="slider-header">
+                  <label for="img-quality-range" class="setting-label">Качество сжатия:</label>
+                  <span id="img-quality-val" class="slider-badge">80%</span>
+                </div>
+                <input type="range" id="img-quality-range" min="40" max="100" value="80" class="custom-range">
+                <div class="slider-hints">
+                  <span>Меньше вес</span>
+                  <span>Баланс (~200 КБ)</span>
+                  <span>Выше качество</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Кнопка запуска -->
+            <div class="card-footer">
+              <button type="button" class="btn btn-primary" id="btn-optimize-images">
+                <span class="btn-icon">⚙️</span> Оптимизировать изображения
+              </button>
+            </div>
+          </div>
+
+          <!-- Правая колонка: Результаты сжатия и скачивание -->
+          <div class="card output-card">
+            <div class="card-header">
+              <h3>2. Обработанные файлы</h3>
+              <div class="batch-summary" id="images-batch-summary">
+                Ожидание файлов
+              </div>
+            </div>
+
+            <!-- Область вывода карточек обработанных картинок -->
+            <div class="processed-gallery" id="processed-gallery">
+              <div class="gallery-placeholder">
+                <span class="placeholder-icon">📂</span>
+                <p>После оптимизации здесь появятся обработанные файлы с информацией о весе и экономии места.</p>
+              </div>
+            </div>
+
+            <!-- Кнопки скачивания -->
+            <div class="card-footer space-between">
+              <div class="total-saved-badge" id="total-saved-info">
+                Экономия: 0 КБ (0%)
+              </div>
+              <div class="action-buttons">
+                <button type="button" class="btn btn-secondary" id="btn-download-all-zip" disabled>
+                  <span class="btn-icon">📦</span> Скачать все (ZIP)
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Подвал страницы -->
+    <footer class="app-footer">
+      <p>Text2Html + OptiPics • Этап 2: Модуль «Текст → HTML» • Ноябрь 2026</p>
+    </footer>
+  </div>
+
+  <!-- Внешние библиотеки (CDN) для чтения DOCX и типографики -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/typograf@7.9.1/dist/typograf.min.js"></script>
+
+  <!-- Модули приложения -->
+  <script src="text2html.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
