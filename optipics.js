@@ -55,6 +55,11 @@
   };
 
   /**
+   * Максимальный допустимый размер входного файла (20 МБ)
+   */
+  OptiPics.MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024;
+
+  /**
    * Поддерживаемые типы файлов для обработки
    */
   const SUPPORTED_MIME_TYPES = [
@@ -298,6 +303,10 @@
 
     if (!OptiPics.isSupportedImage(file)) {
       throw new Error(`Файл «${file.name}» не является поддерживаемым форматом изображения.`);
+    }
+
+    if (file.size > OptiPics.MAX_FILE_SIZE_BYTES) {
+      throw new Error(`Файл «${file.name}» слишком большой. Максимальный размер: 20 МБ.`);
     }
 
     const options = Object.assign({}, DEFAULT_OPTIONS, customOptions);

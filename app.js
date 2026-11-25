@@ -560,7 +560,7 @@ document.addEventListener('DOMContentLoaded', () => {
           }
 
           displayResult(cleanHtml);
-          showStatus('✅ Текст успешно преобразован в аккуратный HTML с типографикой!', 'success');
+          showStatus('Текст успешно преобразован в аккуратный HTML с типографикой!', 'success');
         } catch (err) {
           console.error('Ошибка при обработке текста:', err);
           showStatus(`Ошибка при обработке текста: ${err.message}`, 'error');
@@ -597,7 +597,7 @@ document.addEventListener('DOMContentLoaded', () => {
           }
 
           displayResult(cleanHtml);
-          showStatus(`✅ Файл «${file.name}» успешно прочитан и очищен!`, 'success');
+          showStatus(`Файл «${file.name}» успешно прочитан и очищен!`, 'success');
         } catch (err) {
           console.error('Ошибка при обработке файла:', err);
           showStatus(`Ошибка обработки файла: ${err.message}`, 'error');
@@ -781,6 +781,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const imagesBatchSummary = document.getElementById('images-batch-summary');
   const totalSavedInfo = document.getElementById('total-saved-info');
 
+  // Лимиты очереди изображений за одну сессию
+  const MAX_IMAGE_FILES = 10;
+  const MAX_IMAGE_SIZE_BYTES = (typeof OptiPics !== 'undefined' && OptiPics.MAX_FILE_SIZE_BYTES)
+    ? OptiPics.MAX_FILE_SIZE_BYTES
+    : 20 * 1024 * 1024; // 20 МБ
+
   // Внутреннее состояние вкладки OptiPics
   let selectedFiles = [];       // Массив выбранных пользователем файлов (File)
   let processedResults = [];    // Массив результатов сжатия из OptiPics
@@ -819,31 +825,56 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /**
-   * Добавляет новые файлы в очередь обработки
+   * Добавляет новые файлы в очередь обработки (с проверкой формата, веса и лимита)
    * @param {FileList|Array<File>} newFiles
    */
   function addImagesToQueue(newFiles) {
     if (!newFiles || newFiles.length === 0) return;
 
     const added = [];
-    const rejected = [];
+    const rejectedType = [];
+    const rejectedSize = [];
+    const rejectedLimit = [];
 
     Array.from(newFiles).forEach(file => {
-      if (typeof OptiPics !== 'undefined' && OptiPics.isSupportedImage(file)) {
-        selectedFiles.push(file);
-        added.push(file.name);
-      } else {
-        rejected.push(file.name);
+      if (typeof OptiPics === 'undefined' || !OptiPics.isSupportedImage(file)) {
+        rejectedType.push(file.name);
+        return;
       }
+
+      if (file.size > MAX_IMAGE_SIZE_BYTES) {
+        rejectedSize.push(file.name);
+        return;
+      }
+
+      if (selectedFiles.length >= MAX_IMAGE_FILES) {
+        rejectedLimit.push(file.name);
+        return;
+      }
+
+      selectedFiles.push(file);
+      added.push(file.name);
     });
 
     renderSelectedFilesQueue();
 
-    if (added.length > 0) {
-      showImagesBanner(`Добавлено файлов в очередь: ${added.length}`, 'success', 3500);
+    const warnings = [];
+    if (rejectedSize.length > 0) {
+      warnings.push(`Файл слишком большой. Максимальный размер: 20 МБ (${rejectedSize.join(', ')})`);
     }
-    if (rejected.length > 0) {
-      showImagesBanner(`Пропущено неподдерживаемых файлов (${rejected.length}): ${rejected.join(', ')}`, 'warning', 6000);
+    if (rejectedLimit.length > 0) {
+      warnings.push(`Достигнут лимит: максимум ${MAX_IMAGE_FILES} файлов за сессию`);
+    }
+    if (rejectedType.length > 0) {
+      warnings.push(`Пропущено неподдерживаемых файлов (${rejectedType.length}): ${rejectedType.join(', ')}`);
+    }
+
+    if (warnings.length > 0) {
+      const prefix = added.length > 0 ? `Добавлено файлов: ${added.length}. ` : '';
+      const bannerType = (rejectedSize.length > 0 && added.length === 0) ? 'error' : 'warning';
+      showImagesBanner(`${prefix}${warnings.join('. ')}`, bannerType, 6000);
+    } else if (added.length > 0) {
+      showImagesBanner(`Добавлено файлов в очередь: ${added.length}`, 'success', 3500);
     }
   }
 
@@ -854,7 +885,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!imagesSelectedList) return;
 
     if (selectedFiles.length === 0) {
-      imagesSelectedList.innerHTML = '<div class="empty-list-notice">Файлы ещё не выбраны</div>';
+      imagesSelectedList.innerHTML = `<div class="empty-list-notice">Файлы ещё не выбраны (0 из ${MAX_IMAGE_FILES})</div>`;
       if (btnOptimizeImages) btnOptimizeImages.disabled = true;
       return;
     }
@@ -869,7 +900,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let html = `
       <div class="selected-images-header">
-        <span>Выбрано: <strong class="selected-count-badge">${selectedFiles.length}</strong> (общий вес: ${totalFormatted})</span>
+        <span>Выбрано: <strong class="selected-count-badge">${selectedFiles.length} из ${MAX_IMAGE_FILES}</strong> (общий вес: ${totalFormatted})</span>
         <button type="button" class="btn-inline-clear" id="btn-clear-selected-list" title="Очистить только очередь">Очистить список</button>
       </div>
       <div class="selected-images-scroll">
@@ -963,7 +994,7 @@ document.addEventListener('DOMContentLoaded', () => {
       imagesBatchSummary.textContent = 'Ожидание файлов';
     }
     if (totalSavedInfo) {
-      totalSavedInfo.textContent = 'Экономия: 0 КБ (0%)';
+      totalSavedInfo.textContent = 'Экономия: 0 КБ';
     }
     if (btnDownloadAllZip) {
       btnDownloadAllZip.disabled = true;
@@ -1038,7 +1069,7 @@ document.addEventListener('DOMContentLoaded', () => {
       imagesEmptyPlaceholder.classList.remove('hidden');
       processedGalleryContainer.classList.remove('has-items');
       if (btnDownloadAllZip) btnDownloadAllZip.disabled = true;
-      if (totalSavedInfo) totalSavedInfo.textContent = 'Экономия: 0 КБ (0%)';
+      if (totalSavedInfo) totalSavedInfo.textContent = 'Экономия: 0 КБ';
       return;
     }
 
@@ -1060,11 +1091,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const origFormatted = OptiPics.formatBytes(item.originalSize);
         const newFormatted = OptiPics.formatBytes(item.newSize);
-        const isSmaller = item.newSize < item.originalSize;
-        const savedText = isSmaller 
-          ? `-${item.savedPercent}%` 
-          : '0%';
-        const badgeClass = isSmaller ? 'stat-saved-badge' : 'stat-saved-badge stat-zero';
 
         gridHtml += `
           <div class="processed-card" data-card-index="${index}">
@@ -1081,7 +1107,6 @@ document.addEventListener('DOMContentLoaded', () => {
                   <span class="stat-size-compare">
                     ${origFormatted} <span class="stat-size-arrow">→</span> <strong>${newFormatted}</strong>
                   </span>
-                  <span class="${badgeClass}">${savedText}</span>
                   <span class="stat-dims">${item.newWidth}×${item.newHeight} px</span>
                 </div>
               </div>
@@ -1127,15 +1152,11 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
 
-    // Обновляем общую статистику экономии
+    // Обновляем общую статистику экономии (без процентов)
     const totalSavedBytes = Math.max(0, totalOrigBytes - totalNewBytes);
-    const totalPercent = totalOrigBytes > 0 
-      ? Math.round((totalSavedBytes / totalOrigBytes) * 100) 
-      : 0;
-
     const savedFormatted = OptiPics.formatBytes(totalSavedBytes);
     if (totalSavedInfo) {
-      totalSavedInfo.textContent = `Экономия: ${savedFormatted} (${totalPercent}%)`;
+      totalSavedInfo.textContent = `Экономия: ${savedFormatted}`;
     }
 
     if (imagesBatchSummary) {
