@@ -606,7 +606,7 @@ body {
   pointer-events: none;
 }
 
-/* 12. ГАЛЕРЕЯ И СПИСКИ ИЗОБРАЖЕНИЙ */
+/* 12. ГАЛЕРЕЯ И СПИСКИ ИЗОБРАЖЕНИЙ (OPTIPICS) */
 .file-list-container {
   padding: 0 20px 14px;
 }
@@ -615,8 +615,160 @@ body {
   font-size: 0.85rem;
   color: var(--text-muted);
   font-style: italic;
+  padding: 8px 0;
 }
 
+/* Заголовок списка выбранных файлов */
+.selected-images-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.83rem;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.selected-count-badge {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.btn-inline-clear {
+  background: transparent;
+  border: none;
+  color: #ef4444;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  transition: all 0.15s ease;
+}
+
+.btn-inline-clear:hover {
+  background-color: #fee2e2;
+}
+
+/* Прокручиваемый список выбранных картинок */
+.selected-images-scroll {
+  max-height: 180px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-right: 4px;
+}
+
+.selected-img-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8fafc;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  gap: 10px;
+  transition: background-color 0.15s ease;
+}
+
+.selected-img-row:hover {
+  background-color: #f1f5f9;
+}
+
+.selected-img-thumb {
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  object-fit: cover;
+  border: 1px solid var(--border-color);
+  flex-shrink: 0;
+  background-color: #e2e8f0;
+}
+
+.selected-img-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.selected-img-name {
+  font-size: 0.83rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.selected-img-meta {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.btn-remove-item {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 1rem;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  transition: all 0.15s ease;
+  line-height: 1;
+}
+
+.btn-remove-item:hover {
+  color: #ef4444;
+  background-color: #fee2e2;
+}
+
+/* Индикатор прогресса сжатия */
+.progress-box {
+  background: #f8fafc;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  margin: 0 20px 16px;
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.progress-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.progress-percent {
+  color: var(--primary);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+}
+
+.progress-bar-track {
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary), var(--brand-secondary));
+  border-radius: 9999px;
+  transition: width 0.25s ease;
+}
+
+/* Правая панель: Галерея обработанных файлов */
 .processed-gallery {
   padding: 20px;
   flex-grow: 1;
@@ -629,6 +781,12 @@ body {
   align-items: center;
 }
 
+.processed-gallery.has-items {
+  justify-content: flex-start;
+  align-items: stretch;
+  padding: 16px;
+}
+
 .gallery-placeholder {
   text-align: center;
   color: var(--text-muted);
@@ -639,6 +797,175 @@ body {
   display: block;
   margin-bottom: 8px;
   opacity: 0.6;
+}
+
+.gallery-items-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+/* Карточка обработанного изображения */
+.processed-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  gap: 12px;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
+}
+
+.processed-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: var(--shadow-md);
+}
+
+.card-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
+
+.processed-thumb-wrap {
+  width: 54px;
+  height: 54px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  flex-shrink: 0;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.processed-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.card-details {
+  min-width: 0;
+  flex: 1;
+}
+
+.card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.card-filename {
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px;
+}
+
+.card-badge-format {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--primary-subtle);
+  color: var(--primary),
+  letter-spacing: 0.03em;
+  flex-shrink: 0;
+}
+
+.card-stats-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.stat-size-compare {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.stat-size-arrow {
+  color: var(--text-muted);
+  margin: 0 2px;
+}
+
+.stat-saved-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 9999px;
+  font-weight: 700;
+  font-size: 0.74rem;
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.stat-saved-badge.stat-zero {
+  background: #f1f5f9;
+  color: var(--text-secondary);
+  border-color: var(--border-color);
+}
+
+.stat-dims {
+  color: var(--text-muted);
+  font-size: 0.74rem;
+}
+
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.btn-card-download {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 12px;
+  background: var(--bg-muted);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-card-download:hover {
+  background: var(--primary);
+  color: #ffffff;
+  border-color: var(--primary);
+}
+
+/* Карточка ошибки при сбое сжатия */
+.processed-card.has-error {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.processed-card.has-error .card-filename {
+  color: #991b1b;
+}
+
+.processed-card.has-error .stat-dims {
+  color: #b91c1c;
 }
 
 .stats-counter, .batch-summary, .total-saved-badge {

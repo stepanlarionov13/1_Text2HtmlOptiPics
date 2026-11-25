@@ -14,7 +14,7 @@
         <h1 class="app-title"><span class="brand-accent">Text2Html</span> + <span class="brand-secondary">OptiPics</span></h1>
         <p class="app-subtitle">Преобразование текста в чистый HTML и быстрая оптимизация изображений</p>
       </div>
-      <div class="header-badge">Версия 0.2 (Этап 2: Text2Html)</div>
+      <div class="header-badge">Версия 0.3 (Этап 3: OptiPics)</div>
     </header>
 
     <!-- Навигация: Вкладки -->
@@ -187,6 +187,9 @@
           <p>Сжатие JPG/PNG, пропорциональное уменьшение размеров и конвертация в WebP для ускорения загрузки страниц сайта.</p>
         </div>
 
+        <!-- Баннер уведомлений для изображений -->
+        <div id="images-status-banner" class="status-banner hidden" role="alert"></div>
+
         <div class="grid-two-columns">
           
           <!-- Левая колонка: Загрузка и настройки -->
@@ -198,9 +201,9 @@
             <!-- Зона Drag-and-Drop для фото -->
             <div class="drop-zone" id="images-dropzone">
               <span class="drop-icon">📸</span>
-              <p class="drop-title">Перетащите изображения сюда (JPG, PNG)</p>
+              <p class="drop-title">Перетащите изображения сюда (JPG, PNG, WebP)</p>
               <p class="drop-hint">или нажмите для выбора файлов на компьютере</p>
-              <input type="file" id="images-file-input" class="file-input-hidden" multiple accept="image/jpeg,image/png,image/webp">
+              <input type="file" id="images-file-input" class="file-input-hidden" multiple accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,image/avif">
             </div>
 
             <!-- Список выбранных файлов перед обработкой -->
@@ -237,16 +240,30 @@
                 <input type="range" id="img-quality-range" min="40" max="100" value="80" class="custom-range">
                 <div class="slider-hints">
                   <span>Меньше вес</span>
-                  <span>Баланс (~200 КБ)</span>
+                  <span>Баланс</span>
                   <span>Выше качество</span>
                 </div>
               </div>
             </div>
 
-            <!-- Кнопка запуска -->
-            <div class="card-footer">
-              <button type="button" class="btn btn-primary" id="btn-optimize-images">
+            <!-- Индикатор прогресса обработки -->
+            <div id="images-progress-container" class="progress-box hidden">
+              <div class="progress-header">
+                <span id="images-progress-label" class="progress-label">Обработка файлов...</span>
+                <span id="images-progress-percent" class="progress-percent">0%</span>
+              </div>
+              <div class="progress-bar-track">
+                <div id="images-progress-fill" class="progress-bar-fill" style="width: 0%"></div>
+              </div>
+            </div>
+
+            <!-- Кнопки запуска и очистки -->
+            <div class="card-footer space-between">
+              <button type="button" class="btn btn-primary" id="btn-optimize-images" disabled>
                 <span class="btn-icon">⚙️</span> Оптимизировать изображения
+              </button>
+              <button type="button" class="btn btn-ghost" id="btn-clear-images" title="Очистить выбранные и обработанные файлы">
+                Очистить
               </button>
             </div>
           </div>
@@ -262,10 +279,11 @@
 
             <!-- Область вывода карточек обработанных картинок -->
             <div class="processed-gallery" id="processed-gallery">
-              <div class="gallery-placeholder">
+              <div class="gallery-placeholder" id="images-empty-placeholder">
                 <span class="placeholder-icon">📂</span>
                 <p>После оптимизации здесь появятся обработанные файлы с информацией о весе и экономии места.</p>
               </div>
+              <div class="gallery-items-grid hidden" id="images-gallery-grid"></div>
             </div>
 
             <!-- Кнопки скачивания -->
@@ -288,16 +306,18 @@
 
     <!-- Подвал страницы -->
     <footer class="app-footer">
-      <p>Text2Html + OptiPics • Этап 2: Модуль «Текст → HTML» • Ноябрь 2026</p>
+      <p>Text2Html + OptiPics • Этап 3: Модуль «Изображения» (OptiPics) • Ноябрь 2026</p>
     </footer>
   </div>
 
-  <!-- Внешние библиотеки (CDN) для чтения DOCX и типографики -->
+  <!-- Внешние библиотеки (CDN) для чтения DOCX, типографики и упаковки в ZIP -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/typograf@7.9.1/dist/typograf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
   <!-- Модули приложения -->
   <script src="text2html.js"></script>
+  <script src="optipics.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

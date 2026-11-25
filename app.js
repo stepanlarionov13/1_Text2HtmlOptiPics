@@ -1,20 +1,20 @@
 /**
  * ==========================================================================
- * Text2Html + OptiPics — Основной JavaScript приложения (Этап 2)
+ * Text2Html + OptiPics — Основной JavaScript приложения (Этап 3)
  * Управление интерфейсом, связывание модулей и обработка событий
  * ==========================================================================
  * 
  * ПОЯСНЕНИЕ ДЛЯ НАЧИНАЮЩИХ:
  * Этот файл — "дирижёр" нашего веб-приложения:
  * 1. Слушает клики по кнопкам, ввод текста и перетаскивание файлов.
- * 2. Передаёт введённый текст или DOCX в модуль `text2html.js` на обработку.
- * 3. Выводит готовый чистый HTML в текстовое поле и область предпросмотра.
- * 4. Управляет копированием кода в буфер обмена одной кнопкой.
+ * 2. Передаёт текст или DOCX в модуль `text2html.js` на обработку.
+ * 3. Передаёт картинки в модуль `optipics.js` для сжатия и конвертации в WebP.
+ * 4. Управляет скачиванием готовых изображений и упаковкой в единый ZIP.
  * 5. Показывает понятные подсказки, предупреждения и сообщения об ошибках.
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('🚀 Инициализация Text2Html + OptiPics (Этап 2: Текст → HTML)...');
+  console.log('🚀 Инициализация Text2Html + OptiPics (Этап 3: OptiPics)...');
 
   // ==========================================================================
   // 1. УПРАВЛЕНИЕ ГЛАВНЫМИ ВКЛАДКАМИ ("Текст в HTML" и "Оптимизация изображений")
@@ -748,32 +748,264 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
   // ==========================================================================
-  // 10. ПОЛЗУНОК КАЧЕСТВА ДЛЯ ВКЛАДКИ ИЗОБРАЖЕНИЙ (ИЗ ЭТАПА 1)
+  // 10. МОДУЛЬ «ИЗОБРАЖЕНИЯ» (OPTIPICS) — СЖАТИЕ, КОНВЕРТАЦИЯ И ZIP
   // ==========================================================================
 
-  const qualityRange = document.getElementById('img-quality-range');
-  const qualityValBadge = document.getElementById('img-quality-val');
+  // Элементы настроек сжатия
+  const imgFormatSelect = document.getElementById('img-format-select');
+  const imgMaxWidthSelect = document.getElementById('img-max-width');
+  const imgQualityRange = document.getElementById('img-quality-range');
+  const imgQualityValBadge = document.getElementById('img-quality-val');
 
-  if (qualityRange && qualityValBadge) {
-    qualityRange.addEventListener('input', () => {
-      qualityValBadge.textContent = `${qualityRange.value}%`;
+  // Зона загрузки и выбора файлов
+  const imagesDropzone = document.getElementById('images-dropzone');
+  const imagesFileInput = document.getElementById('images-file-input');
+  const imagesSelectedList = document.getElementById('images-selected-list');
+  const imagesStatusBanner = document.getElementById('images-status-banner');
+
+  // Индикатор прогресса
+  const imagesProgressContainer = document.getElementById('images-progress-container');
+  const imagesProgressLabel = document.getElementById('images-progress-label');
+  const imagesProgressPercent = document.getElementById('images-progress-percent');
+  const imagesProgressFill = document.getElementById('images-progress-fill');
+
+  // Главные кнопки управления
+  const btnOptimizeImages = document.getElementById('btn-optimize-images');
+  const btnClearImages = document.getElementById('btn-clear-images');
+  const btnDownloadAllZip = document.getElementById('btn-download-all-zip');
+
+  // Область результатов и галерея
+  const processedGalleryContainer = document.getElementById('processed-gallery');
+  const imagesEmptyPlaceholder = document.getElementById('images-empty-placeholder');
+  const imagesGalleryGrid = document.getElementById('images-gallery-grid');
+  const imagesBatchSummary = document.getElementById('images-batch-summary');
+  const totalSavedInfo = document.getElementById('total-saved-info');
+
+  // Внутреннее состояние вкладки OptiPics
+  let selectedFiles = [];       // Массив выбранных пользователем файлов (File)
+  let processedResults = [];    // Массив результатов сжатия из OptiPics
+  let isProcessingImages = false;
+
+  /**
+   * Отображает уведомление вверху вкладки изображений
+   * @param {string} message — текст сообщения
+   * @param {'info'|'success'|'error'|'warning'} type — тип сообщения
+   * @param {number} autoHideMs — через сколько мс скрыть (0 — не скрывать)
+   */
+  let imagesBannerTimer = null;
+  function showImagesBanner(message, type = 'info', autoHideMs = 5000) {
+    if (!imagesStatusBanner) return;
+    if (imagesBannerTimer) {
+      clearTimeout(imagesBannerTimer);
+      imagesBannerTimer = null;
+    }
+
+    imagesStatusBanner.className = `status-banner banner-${type}`;
+    imagesStatusBanner.textContent = message;
+    imagesStatusBanner.classList.remove('hidden');
+
+    if (autoHideMs > 0) {
+      imagesBannerTimer = setTimeout(() => {
+        imagesStatusBanner.classList.add('hidden');
+      }, autoHideMs);
+    }
+  }
+
+  // Обновление значения качества при перемещении ползунка
+  if (imgQualityRange && imgQualityValBadge) {
+    imgQualityRange.addEventListener('input', () => {
+      imgQualityValBadge.textContent = `${imgQualityRange.value}%`;
     });
   }
 
-  // Зона драг-энд-дропа для фото (пока заглушка для визуального эффекта)
-  const imagesDropzone = document.getElementById('images-dropzone');
-  const imagesFileInput = document.getElementById('images-file-input');
+  /**
+   * Добавляет новые файлы в очередь обработки
+   * @param {FileList|Array<File>} newFiles
+   */
+  function addImagesToQueue(newFiles) {
+    if (!newFiles || newFiles.length === 0) return;
 
+    const added = [];
+    const rejected = [];
+
+    Array.from(newFiles).forEach(file => {
+      if (typeof OptiPics !== 'undefined' && OptiPics.isSupportedImage(file)) {
+        selectedFiles.push(file);
+        added.push(file.name);
+      } else {
+        rejected.push(file.name);
+      }
+    });
+
+    renderSelectedFilesQueue();
+
+    if (added.length > 0) {
+      showImagesBanner(`Добавлено файлов в очередь: ${added.length}`, 'success', 3500);
+    }
+    if (rejected.length > 0) {
+      showImagesBanner(`Пропущено неподдерживаемых файлов (${rejected.length}): ${rejected.join(', ')}`, 'warning', 6000);
+    }
+  }
+
+  /**
+   * Перерисовывает визуальный список выбранных файлов в левой колонке
+   */
+  function renderSelectedFilesQueue() {
+    if (!imagesSelectedList) return;
+
+    if (selectedFiles.length === 0) {
+      imagesSelectedList.innerHTML = '<div class="empty-list-notice">Файлы ещё не выбраны</div>';
+      if (btnOptimizeImages) btnOptimizeImages.disabled = true;
+      return;
+    }
+
+    if (btnOptimizeImages) btnOptimizeImages.disabled = false;
+
+    // Считаем общий размер выбранных файлов
+    const totalBytes = selectedFiles.reduce((acc, f) => acc + (f.size || 0), 0);
+    const totalFormatted = (typeof OptiPics !== 'undefined') 
+      ? OptiPics.formatBytes(totalBytes) 
+      : `${Math.round(totalBytes / 1024)} КБ`;
+
+    let html = `
+      <div class="selected-images-header">
+        <span>Выбрано: <strong class="selected-count-badge">${selectedFiles.length}</strong> (общий вес: ${totalFormatted})</span>
+        <button type="button" class="btn-inline-clear" id="btn-clear-selected-list" title="Очистить только очередь">Очистить список</button>
+      </div>
+      <div class="selected-images-scroll">
+    `;
+
+    selectedFiles.forEach((file, idx) => {
+      const fileSize = (typeof OptiPics !== 'undefined') 
+        ? OptiPics.formatBytes(file.size) 
+        : `${Math.round(file.size / 1024)} КБ`;
+
+      html += `
+        <div class="selected-img-row" data-index="${idx}">
+          <div class="selected-img-info">
+            <div class="selected-img-name" title="${escapeString(file.name)}">${escapeString(file.name)}</div>
+            <div class="selected-img-meta">${fileSize} • ${escapeString(file.type || 'файл')}</div>
+          </div>
+          <button type="button" class="btn-remove-item" data-remove-index="${idx}" title="Удалить из очереди">✕</button>
+        </div>
+      `;
+    });
+
+    html += '</div>';
+    imagesSelectedList.innerHTML = html;
+
+    // Обработчик кнопки "Очистить список"
+    const btnClearQueue = document.getElementById('btn-clear-selected-list');
+    if (btnClearQueue) {
+      btnClearQueue.addEventListener('click', () => {
+        clearSelectedQueue();
+      });
+    }
+
+    // Обработчики кнопок удаления отдельных файлов
+    const removeBtns = imagesSelectedList.querySelectorAll('.btn-remove-item');
+    removeBtns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const removeIdx = parseInt(e.currentTarget.getAttribute('data-remove-index'), 10);
+        if (!isNaN(removeIdx) && removeIdx >= 0 && removeIdx < selectedFiles.length) {
+          selectedFiles.splice(removeIdx, 1);
+          renderSelectedFilesQueue();
+        }
+      });
+    });
+  }
+
+  /**
+   * Очищает только выбранную очередь файлов
+   */
+  function clearSelectedQueue() {
+    selectedFiles = [];
+    if (imagesFileInput) imagesFileInput.value = '';
+    renderSelectedFilesQueue();
+    showImagesBanner('Список выбранных файлов очищен', 'info', 3000);
+  }
+
+  /**
+   * Полная очистка: удаляет и выбранные, и обработанные файлы
+   */
+  function clearAllImages() {
+    // 1. Очищаем очередь файлов
+    selectedFiles = [];
+    if (imagesFileInput) imagesFileInput.value = '';
+    renderSelectedFilesQueue();
+
+    // 2. Освобождаем память от URL картинок
+    if (Array.isArray(processedResults)) {
+      processedResults.forEach(item => {
+        if (item && item.previewUrl) {
+          try {
+            URL.revokeObjectURL(item.previewUrl);
+          } catch (e) { /* игнорируем */ }
+        }
+      });
+    }
+    processedResults = [];
+
+    // 3. Сбрасываем правую колонку галереи
+    if (imagesGalleryGrid) {
+      imagesGalleryGrid.innerHTML = '';
+      imagesGalleryGrid.classList.add('hidden');
+    }
+    if (imagesEmptyPlaceholder) {
+      imagesEmptyPlaceholder.classList.remove('hidden');
+    }
+    if (processedGalleryContainer) {
+      processedGalleryContainer.classList.remove('has-items');
+    }
+
+    // 4. Сбрасываем сводки и кнопки
+    if (imagesBatchSummary) {
+      imagesBatchSummary.textContent = 'Ожидание файлов';
+    }
+    if (totalSavedInfo) {
+      totalSavedInfo.textContent = 'Экономия: 0 КБ (0%)';
+    }
+    if (btnDownloadAllZip) {
+      btnDownloadAllZip.disabled = true;
+    }
+
+    // 5. Скрываем индикатор прогресса
+    if (imagesProgressContainer) {
+      imagesProgressContainer.classList.add('hidden');
+    }
+
+    showImagesBanner('Все файлы и результаты обработки очищены.', 'info', 4000);
+  }
+
+  // Привязываем обработчик к главной кнопке «Очистить»
+  if (btnClearImages) {
+    btnClearImages.addEventListener('click', () => {
+      clearAllImages();
+    });
+  }
+
+  // Настройка Drag-and-Drop для зоны картинок
   if (imagesDropzone && imagesFileInput) {
     imagesDropzone.addEventListener('click', () => {
-      imagesFileInput.click();
+      if (!isProcessingImages) {
+        imagesFileInput.click();
+      }
+    });
+
+    imagesFileInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        addImagesToQueue(e.target.files);
+        imagesFileInput.value = ''; // сбрасываем для возможности повторного выбора того же файла
+      }
     });
 
     ['dragenter', 'dragover'].forEach(eventName => {
       imagesDropzone.addEventListener(eventName, (e) => {
         e.preventDefault();
         e.stopPropagation();
-        imagesDropzone.classList.add('dragover');
+        if (!isProcessingImages) {
+          imagesDropzone.classList.add('dragover');
+        }
       });
     });
 
@@ -784,17 +1016,264 @@ document.addEventListener('DOMContentLoaded', () => {
         imagesDropzone.classList.remove('dragover');
       });
     });
+
+    imagesDropzone.addEventListener('drop', (e) => {
+      if (isProcessingImages) return;
+      const dt = e.dataTransfer;
+      if (dt && dt.files && dt.files.length > 0) {
+        addImagesToQueue(dt.files);
+      }
+    });
+  }
+
+  /**
+   * Отображает галерею обработанных изображений в правой колонке
+   */
+  function renderProcessedGallery() {
+    if (!imagesGalleryGrid || !processedGalleryContainer || !imagesEmptyPlaceholder) return;
+
+    if (!processedResults || processedResults.length === 0) {
+      imagesGalleryGrid.innerHTML = '';
+      imagesGalleryGrid.classList.add('hidden');
+      imagesEmptyPlaceholder.classList.remove('hidden');
+      processedGalleryContainer.classList.remove('has-items');
+      if (btnDownloadAllZip) btnDownloadAllZip.disabled = true;
+      if (totalSavedInfo) totalSavedInfo.textContent = 'Экономия: 0 КБ (0%)';
+      return;
+    }
+
+    imagesEmptyPlaceholder.classList.add('hidden');
+    imagesGalleryGrid.classList.remove('hidden');
+    processedGalleryContainer.classList.add('has-items');
+
+    let totalOrigBytes = 0;
+    let totalNewBytes = 0;
+    let successCount = 0;
+
+    let gridHtml = '';
+
+    processedResults.forEach((item, index) => {
+      if (item.success) {
+        successCount++;
+        totalOrigBytes += (item.originalSize || 0);
+        totalNewBytes += (item.newSize || 0);
+
+        const origFormatted = OptiPics.formatBytes(item.originalSize);
+        const newFormatted = OptiPics.formatBytes(item.newSize);
+        const isSmaller = item.newSize < item.originalSize;
+        const savedText = isSmaller 
+          ? `-${item.savedPercent}%` 
+          : '0%';
+        const badgeClass = isSmaller ? 'stat-saved-badge' : 'stat-saved-badge stat-zero';
+
+        gridHtml += `
+          <div class="processed-card" data-card-index="${index}">
+            <div class="card-left">
+              <div class="processed-thumb-wrap">
+                <img src="${item.previewUrl}" alt="${escapeString(item.newName)}" class="processed-thumb" loading="lazy">
+              </div>
+              <div class="card-details">
+                <div class="card-title-row">
+                  <span class="card-filename" title="${escapeString(item.newName)}">${escapeString(item.newName)}</span>
+                  <span class="card-badge-format">${escapeString(item.format)}</span>
+                </div>
+                <div class="card-stats-row">
+                  <span class="stat-size-compare">
+                    ${origFormatted} <span class="stat-size-arrow">→</span> <strong>${newFormatted}</strong>
+                  </span>
+                  <span class="${badgeClass}">${savedText}</span>
+                  <span class="stat-dims">${item.newWidth}×${item.newHeight} px</span>
+                </div>
+              </div>
+            </div>
+            <div class="card-actions">
+              <button type="button" class="btn-card-download" data-download-index="${index}" title="Скачать этот файл">
+                <span>⬇</span> Скачать
+              </button>
+            </div>
+          </div>
+        `;
+      } else {
+        // Карточка с ошибкой обработки
+        gridHtml += `
+          <div class="processed-card has-error" data-card-index="${index}">
+            <div class="card-left">
+              <div class="processed-thumb-wrap">⚠️</div>
+              <div class="card-details">
+                <div class="card-title-row">
+                  <span class="card-filename">${escapeString(item.originalName)}</span>
+                </div>
+                <div class="card-stats-row">
+                  <span style="color: #dc2626; font-size: 0.8rem;">Ошибка: ${escapeString(item.error || 'Не удалось обработать')}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    });
+
+    imagesGalleryGrid.innerHTML = gridHtml;
+
+    // Навешиваем клики на индивидуальные кнопки скачивания
+    const downloadBtns = imagesGalleryGrid.querySelectorAll('.btn-card-download');
+    downloadBtns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const idx = parseInt(e.currentTarget.getAttribute('data-download-index'), 10);
+        const item = processedResults[idx];
+        if (item && item.blob && typeof OptiPics !== 'undefined') {
+          OptiPics.downloadBlob(item.blob, item.newName);
+        }
+      });
+    });
+
+    // Обновляем общую статистику экономии
+    const totalSavedBytes = Math.max(0, totalOrigBytes - totalNewBytes);
+    const totalPercent = totalOrigBytes > 0 
+      ? Math.round((totalSavedBytes / totalOrigBytes) * 100) 
+      : 0;
+
+    const savedFormatted = OptiPics.formatBytes(totalSavedBytes);
+    if (totalSavedInfo) {
+      totalSavedInfo.textContent = `Экономия: ${savedFormatted} (${totalPercent}%)`;
+    }
+
+    if (imagesBatchSummary) {
+      imagesBatchSummary.textContent = `Готово: ${successCount} из ${processedResults.length}`;
+    }
+
+    if (btnDownloadAllZip) {
+      btnDownloadAllZip.disabled = (successCount === 0);
+    }
+  }
+
+  /**
+   * Запуск процесса оптимизации изображений
+   */
+  if (btnOptimizeImages) {
+    btnOptimizeImages.addEventListener('click', async () => {
+      if (selectedFiles.length === 0 || isProcessingImages) return;
+
+      if (typeof OptiPics === 'undefined') {
+        showImagesBanner('Ошибка: модуль OptiPics не загружен. Проверьте подключение optipics.js.', 'error');
+        return;
+      }
+
+      isProcessingImages = true;
+      btnOptimizeImages.disabled = true;
+      if (btnClearImages) btnClearImages.disabled = true;
+      if (btnDownloadAllZip) btnDownloadAllZip.disabled = true;
+
+      // Считываем текущие настройки
+      const targetFormat = imgFormatSelect ? imgFormatSelect.value : 'webp';
+      const maxWidth = imgMaxWidthSelect ? imgMaxWidthSelect.value : '1200';
+      const qualityVal = imgQualityRange ? Number(imgQualityRange.value) / 100 : 0.80;
+
+      const options = {
+        format: targetFormat,
+        maxWidth: maxWidth,
+        quality: qualityVal
+      };
+
+      // Показываем контейнер прогресса
+      if (imagesProgressContainer) {
+        imagesProgressContainer.classList.remove('hidden');
+      }
+      if (imagesProgressPercent) imagesProgressPercent.textContent = '0%';
+      if (imagesProgressFill) imagesProgressFill.style.width = '0%';
+      if (imagesProgressLabel) imagesProgressLabel.textContent = `Подготовка к сжатию ${selectedFiles.length} файлов...`;
+
+      try {
+        const results = await OptiPics.processBatch(selectedFiles, options, (info) => {
+          if (imagesProgressPercent) {
+            imagesProgressPercent.textContent = `${info.percent}%`;
+          }
+          if (imagesProgressFill) {
+            imagesProgressFill.style.width = `${info.percent}%`;
+          }
+          if (imagesProgressLabel) {
+            const fileName = info.file ? info.file.name : '';
+            imagesProgressLabel.textContent = `Обработка (${info.current}/${info.total}): ${fileName}`;
+          }
+        });
+
+        processedResults = results;
+        renderProcessedGallery();
+
+        const successCount = results.filter(r => r.success).length;
+        showImagesBanner(`Успешно обработано: ${successCount} из ${results.length} изображений.`, 'success', 5000);
+
+        // Мягко скрываем индикатор прогресса через секунду после завершения
+        setTimeout(() => {
+          if (imagesProgressContainer) {
+            imagesProgressContainer.classList.add('hidden');
+          }
+        }, 1200);
+
+      } catch (err) {
+        console.error('Ошибка при пакетной обработке изображений:', err);
+        showImagesBanner(`Ошибка оптимизации: ${err.message || 'Сбой обработки'}`, 'error', 7000);
+      } finally {
+        isProcessingImages = false;
+        btnOptimizeImages.disabled = (selectedFiles.length === 0);
+        if (btnClearImages) btnClearImages.disabled = false;
+      }
+    });
+  }
+
+  /**
+   * Скачивание всех обработанных файлов единым ZIP-архивом
+   */
+  if (btnDownloadAllZip) {
+    btnDownloadAllZip.addEventListener('click', async () => {
+      if (!processedResults || processedResults.length === 0) return;
+
+      const validItems = processedResults.filter(it => it.success && it.blob);
+      if (validItems.length === 0) {
+        showImagesBanner('Нет готовых файлов для добавления в архив', 'warning', 4000);
+        return;
+      }
+
+      const originalBtnHtml = btnDownloadAllZip.innerHTML;
+      btnDownloadAllZip.disabled = true;
+      btnDownloadAllZip.innerHTML = '<span class="btn-icon">⏳</span> Создание архива...';
+
+      try {
+        const zipBlob = await OptiPics.createZip(validItems, (percent) => {
+          if (imagesProgressContainer && !imagesProgressContainer.classList.contains('hidden')) {
+            if (imagesProgressLabel) imagesProgressLabel.textContent = `Упаковка архива ZIP: ${percent}%`;
+            if (imagesProgressPercent) imagesProgressPercent.textContent = `${percent}%`;
+            if (imagesProgressFill) imagesProgressFill.style.width = `${percent}%`;
+          }
+        });
+
+        // Формируем имя архива с текущей датой
+        const now = new Date();
+        const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const zipName = `optipics_optimized_${dateStr}.zip`;
+
+        OptiPics.downloadBlob(zipBlob, zipName);
+        showImagesBanner(`Архив «${zipName}» успешно создан и отправлен на скачивание!`, 'success', 5000);
+
+      } catch (err) {
+        console.error('Ошибка при создании ZIP-архива:', err);
+        showImagesBanner(`Не удалось создать ZIP-архив: ${err.message || 'Ошибка'}`, 'error', 6000);
+      } finally {
+        btnDownloadAllZip.disabled = false;
+        btnDownloadAllZip.innerHTML = originalBtnHtml;
+      }
+    });
   }
 
   // Вспомогательная функция безопасного экранирования для UI
   function escapeString(str) {
     if (!str) return '';
-    return str
+    return String(str)
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
   }
 
-  console.log('✨ Модуль «Текст → HTML» (Этап 2) готов к работе.');
+  console.log('✨ Приложение Text2Html + OptiPics (Этап 3) полностью инициализировано и готово.');
 });
